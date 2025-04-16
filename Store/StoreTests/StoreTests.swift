@@ -66,4 +66,27 @@ TOTAL: $7.97
 """
         XCTAssertEqual(expectedReceipt, receipt.output())
     }
+    
+    // test for tax
+    func testMixedTaxedAndUntaxedItems() {
+        let register = Register()
+
+        register.scan(Item(name: "Beans (8oz Can)", priceEach: 199))
+        register.scan(Item(name: "Pencil", priceEach: 99, isEdible: false))
+        register.scan(Item(name: "Granols Bars (Box, 8ct)", priceEach: 499))
+        let receipt = register.total()
+        XCTAssertEqual(807, receipt.total())
+
+        let expectedReceipt = """
+Receipt:
+Beans (8oz Can): $1.99
+Pencil: $0.99
+Granols Bars (Box, 8ct): $4.99
+------------------
+SUBTOTAL: $7.97
+TAX: $0.10
+TOTAL: $8.07
+"""
+        XCTAssertEqual(receipt.output(), expectedReceipt)
+    }
 }
