@@ -68,7 +68,7 @@ TOTAL: $7.97
     }
     
     // test for tax
-    func testMixedTaxedAndUntaxedItems() {
+    func testTaxItems() {
         let register = Register()
 
         register.scan(Item(name: "Beans (8oz Can)", priceEach: 199))
