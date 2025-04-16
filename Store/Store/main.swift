@@ -16,10 +16,18 @@ protocol Taxable {
     func tax() -> Int
 }
 
+class Coupon {
+    let targetItemName: String
+
+    init(for itemName: String) {
+        self.targetItemName = itemName
+    }
+}
+
 class Item: SKU, Taxable {
     let name: String
     private let priceEach: Int
-    private let isEdible: Bool
+    let isEdible: Bool
     
     init (name: String, priceEach: Int, isEdible: Bool = true) {
         self.name = name
@@ -31,7 +39,7 @@ class Item: SKU, Taxable {
         return priceEach
     }
     
-    // rounds to nearest Int
+    // decision: rounds to nearest Int
     func tax() -> Int {
         if isEdible {
             return 0
@@ -45,53 +53,82 @@ class Item: SKU, Taxable {
 
 class Receipt {
     private var scannedItems: [SKU] = []
+    private var coupons: [Coupon] = []
     
     func addItem(_ item: SKU) {
         scannedItems.append(item)
+    }
+    
+    func addCoupon(_ coupon: Coupon) {
+        coupons.append(coupon)
     }
     
     func items() -> [SKU] {
         return scannedItems
     }
     
-    func output() -> String {
-        var result = "Receipt:\n"
-        
-        for item in scannedItems {
-            let dollar = Double(item.price()) / 100.0
-            result += "\(item.name): $\(String(format: "%.2f", dollar))\n"
-        }
-        
-        let tax = totalTax()
-        if tax > 0 {
-            let subtotal = scannedItems.reduce(0) { $0 + $1.price() }
-            let subtotalDollars = Double(subtotal) / 100.0
-            let taxDollars = Double(tax) / 100.0
-            let totalDollars = Double(subtotal + tax) / 100.0
-            
-            result += "------------------\n"
-            result += String(format: "SUBTOTAL: $%.2f\n", subtotalDollars)
-            result += String(format: "TAX: $%.2f\n", taxDollars)
-            result += String(format: "TOTAL: $%.2f", totalDollars)
-        } else {
-            let totalDollars = Double(total()) / 100.0
-            result += "------------------\n"
-            result += String(format: "TOTAL: $%.2f", totalDollars)
-        }
-        
-        
-        return result
-    }
-    
     func totalTax() -> Int {
-        return scannedItems
-            .compactMap { $0 as? Taxable }
-            .reduce(0) { $0 + $1.tax() }
+        var tax = 0
+        var usedCoupons: [Int] = []
+
+        for item in scannedItems {
+            let price = discountedPrice(for: item, used: &usedCoupons)
+            if let it = item as? Item {
+                if !it.isEdible {
+                    let rawTax = Double(price) * 0.1
+                    tax += Int(rawTax.rounded())
+                }
+            }
+        }
+
+        return tax
     }
     
     func total() -> Int {
-        let num = scannedItems.reduce(0) { $0 + $1.price() }
-        return num + totalTax()
+        var subtotal = 0
+        var usedCoupons: [Int] = []
+
+        for item in scannedItems {
+            let price = discountedPrice(for: item, used: &usedCoupons)
+            subtotal += price
+        }
+
+        return subtotal + totalTax()
+    }
+    
+    func output() -> String {
+        var result = "Receipt:\n"
+        var subtotal = 0
+        var usedCoupons: [Int] = []
+
+        for item in scannedItems {
+            let price = discountedPrice(for: item, used: &usedCoupons)
+            subtotal += price
+            let dollar = Double(price) / 100.0
+            result += "\(item.name): $\(String(format: "%.2f", dollar))\n"
+        }
+
+        let tax = totalTax()
+        let total = subtotal + tax
+
+        result += "------------------\n"
+        if tax > 0 {
+            result += String(format: "SUBTOTAL: $%.2f\n", Double(subtotal) / 100.0)
+            result += String(format: "TAX: $%.2f\n", Double(tax) / 100.0)
+        }
+        result += String(format: "TOTAL: $%.2f", Double(total) / 100.0)
+
+        return result
+    }
+    
+    private func discountedPrice(for item: SKU, used: inout [Int]) -> Int {
+        for i in 0..<coupons.count {
+            if !used.contains(i) && coupons[i].targetItemName == item.name {
+                used.append(i)
+                return Int(Double(item.price()) * 0.85)
+            }
+        }
+        return item.price()
     }
 }
 
@@ -104,6 +141,10 @@ class Register {
     
     func scan(_ item: SKU) {
         receipt.addItem(item)
+    }
+    
+    func scanCoupon(_ coupon: Coupon) {
+        receipt.addCoupon(coupon)
     }
     
     func subtotal() -> Int {

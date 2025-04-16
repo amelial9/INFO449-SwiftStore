@@ -89,4 +89,28 @@ TOTAL: $8.07
 """
         XCTAssertEqual(receipt.output(), expectedReceipt)
     }
+    
+    // test for coupon
+    func testCoupon() {
+        let register = Register()
+        
+        register.scan(Item(name: "Beans", priceEach: 199))
+        register.scan(Item(name: "Pencil", priceEach: 99, isEdible: false))
+        register.scanCoupon(Coupon(for: "Pencil"))
+
+        let subtotal = register.subtotal()
+        XCTAssertEqual(subtotal, 291)
+
+        let receipt = register.total()
+        let expectedReceipt = """
+Receipt:
+Beans: $1.99
+Pencil: $0.84
+------------------
+SUBTOTAL: $2.83
+TAX: $0.08
+TOTAL: $2.91
+"""
+        XCTAssertEqual(receipt.output(), expectedReceipt)
+    }
 }
